@@ -1,0 +1,29 @@
+from music21 import converter, midi
+from pydub import AudioSegment
+import os
+
+def musicxml_to_mp3(input_file, output_file):
+    try:
+        # Convert the MusicXML file to a MIDI stream
+        score = converter.parse(input_file)
+        midi_file = input_file.replace('.musicxml', '.mid')
+        mf = midi.translate.music21ObjectToMidiFile(score)
+        mf.open(midi_file, 'wb')
+        mf.write()
+        mf.close()
+
+        # Convert the MIDI file to MP3 using pydub
+        sound = AudioSegment.from_file(midi_file, format="mid")
+        sound.export(output_file, format="mp3")
+
+        # Clean up temporary MIDI file
+        os.remove(midi_file)
+
+        print(f"Successfully converted {input_file} to {output_file}")
+    except Exception as e:
+        print(f"Error converting {input_file} to {output_file}: {e}")
+
+# Example usage
+musicxml_file = "OG0002459_codon_with_chords_test.musicxml"
+mp3_file = "OG0002459_codon_with_chords_test.mp3"
+musicxml_to_mp3(musicxml_file, mp3_file)
