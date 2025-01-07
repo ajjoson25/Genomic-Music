@@ -1,6 +1,7 @@
 import csv
-from music21 import converter, midi, stream, meter, instrument, pitch, note, articulations, chord as m21_chord
+from music21 import converter, stream, meter, instrument, note, chord, pitch, articulations
 
+# Define the instrument mapping for each sequence
 species_instrument_map = {
     "Sequence1": instrument.Piano(),
     "Sequence2": instrument.Piano(),
@@ -15,56 +16,28 @@ species_instrument_map = {
 
 default_instrument = instrument.Piano()
 
-# Define chords for each amino acid category
-non_polar_amino_acids = ['A', 'V', 'L', 'I', 'M', 'F', 'W', 'P', 'G']
-polar_amino_acids = ['S', 'T', 'C', 'Y', 'N', 'Q']
-basic_amino_acids = ['K', 'R', 'H']
-acidic_amino_acids = ['D', 'E']
-
-# Assign chords to each amino acid
-amino_acid_to_chord = {}
-
-# Non-polar amino acids: Major chords around the circle of 5ths starting from C
-major_chords = ['C', 'G', 'D', 'A', 'E', 'B', 'F#', 'D-', 'A-']
-for aa, chord in zip(non_polar_amino_acids, major_chords):
-    amino_acid_to_chord[aa] = f"{chord}"
-
-# Polar amino acids: Minor chords around the circle of 5ths starting from A minor
-minor_chords = ['A', 'E', 'B', 'F#', 'C#', 'G#']
-for aa, chord in zip(polar_amino_acids, minor_chords):
-    amino_acid_to_chord[aa] = f"{chord}m"
-
-# Basic amino acids: Diminished chords
-diminished_chords = ['B', 'F#', 'C#']
-for aa, chord in zip(basic_amino_acids, diminished_chords):
-    amino_acid_to_chord[aa] = f"{chord}dim"
-
-# Acidic amino acids: Augmented chords
-augmented_chords = ['D', 'E']
-for aa, chord in zip(acidic_amino_acids, augmented_chords):
-    amino_acid_to_chord[aa] = f"{chord}aug"
-
+# Function to parse pitch and create a note object
 def convert_to_music21(note_string):
     if not note_string:
-        return note.Rest()  # Use note.Rest() directly
+        return note.Rest()  # Return a rest if pitch is empty
     try:
-        pitch_string, octave_string = note_string[:-1], note_string[-1]
-        if not pitch_string or not octave_string.isdigit():
-            return note.Rest()
-        return note.Note(pitch.Pitch(pitch_string + octave_string))
+        return note.Note(note_string)
     except Exception as e:
-        print(f"Error converting note_string '{note_string}': {e}")
+        print(f"Error parsing note: {note_string} - {e}")
         return note.Rest()
 
+# Initialize the score
 score = stream.Score()
 meter_obj = meter.TimeSignature('3/8')
-score.insert(0, meter_obj)
+score.append(meter_obj)
 
 # Initialize a dictionary to store parts for each instrument
 instrument_parts = {}
 
 # Read the CSV file
-with open("OG0002459_codon_with_chords.csv", "r") as csvfile:
+input_file = "OG0002459_codon_with_chords.csv"
+
+with open(input_file, "r") as csvfile:
     reader = csv.DictReader(csvfile)
 
     for row in reader:
@@ -79,61 +52,68 @@ with open("OG0002459_codon_with_chords.csv", "r") as csvfile:
             instrument_parts[current_species] = part
             score.append(part)
 
-        # Handle SequenceX to create chords
-        if current_species == "SequenceX":
-            # Create a triad based on the root note from the pitch column
+        # Process chords for SequenceX
+        if current_species == "SequenceX" and row["accent"].strip().lower() == "accent":
             root_note = row["pitch"]
-            amino_acid = row["codons"].strip()
-            chord_type = amino_acid_to_chord.get(amino_acid, "")
-            if root_note:
+            amino_acid_chord = row["amino_acid_chord"]
+            scale_type = row["scale_type"].strip().lower()
+
+            if root_note and amino_acid_chord and scale_type:
                 try:
-                    # Define triad notes based on the root, all within the same octave
-                    if "m" in chord_type:
-                        third_interval = 3  # Minor third
-                    elif "dim" in chord_type:
-                        third_interval = 3  # Minor third for diminished
-                    elif "aug" in chord_type:
-                        third_interval = 4  # Major third for augmented
-                    else:
-                        third_interval = 4  # Major third for major triad
+                    # Define the chord based on scale_type and amino_acid_chord
+                    created_chord = chord.Chord()
 
-                    if "dim" in chord_type:
-                        fifth_interval = 6  # Diminished fifth
-                    elif "aug" in chord_type:
-                        fifth_interval = 8  # Augmented fifth
-                    else:
-                        fifth_interval = 7  # Perfect fifth for major and minor triads
+                    if scale_type == "blues":
+                        # Blues scale chord creation (dominant seventh chord)
+                        created_chord.pitches = [
+                            root_note,
+                            pitch.Pitch(root_note).transpose(3).nameWithOctave,  # Minor third
+                            pitch.Pitch(root_note).transpose(7).nameWithOctave,  # Perfect fifth
+                            pitch.Pitch(root_note).transpose(10).nameWithOctave  # Minor seventh
+                        ]
+                    elif scale_type == "pentatonic":
+                        # Pentatonic scale chord creation
+                        created_chord.pitches = [
+                            root_note,
+                            pitch.Pitch(root_note).transpose(4).nameWithOctave,  # Major third
+                            pitch.Pitch(root_note).transpose(7).nameWithOctave   # Perfect fifth
+                        ]
+                    elif scale_type == "mixolydian":
+                        # Mixolydian mode chord creation (dominant seventh structure)
+                        created_chord.pitches = [
+                            root_note,
+                            pitch.Pitch(root_note).transpose(4).nameWithOctave,  # Major third
+                            pitch.Pitch(root_note).transpose(7).nameWithOctave,  # Perfect fifth
+                            pitch.Pitch(root_note).transpose(10).nameWithOctave  # Minor seventh
+                        ]
+                    elif scale_type == "bebop":
+                        # Bebop scale chord creation (extended chord with ninth)
+                        created_chord.pitches = [
+                            root_note,
+                            pitch.Pitch(root_note).transpose(4).nameWithOctave,  # Major third
+                            pitch.Pitch(root_note).transpose(7).nameWithOctave,  # Perfect fifth
+                            pitch.Pitch(root_note).transpose(14).nameWithOctave  # Ninth
+                        ]
 
-                    triad_notes = [
-                        root_note,
-                        pitch.Pitch(root_note).transpose(third_interval).nameWithOctave,  # Third in the same octave
-                        pitch.Pitch(root_note).transpose(fifth_interval).nameWithOctave   # Fifth in the same octave
-                    ]
-                    chord_obj = m21_chord.Chord(triad_notes)
-                    chord_obj.duration.quarterLength = 1.5  # Set duration to eighth note
-                    # Add accent if specified in the CSV
-                    if row["accent"].strip().lower() == "accent":
-                        accent_articulation = articulations.Accent()
-                        chord_obj.articulations.append(accent_articulation)
-                    part.append(chord_obj)
-                except ValueError:
-                    print(f"Invalid pitch value in row: {row}")
-                    continue
-        else:
-            # Parse each note and set duration
-            try:
-                note_obj = convert_to_music21(row["pitch"])
-                note_obj.duration.quarterLength = 0.5  # Set duration to eighth note
-            except ValueError:
-                print(f"Invalid duration value in row: {row}")
-                continue
+                    created_chord.quarterLength = 1.5  # Dotted quarter note duration
 
-            # Add accent if specified in the CSV
+                    # Add accent articulation
+                    created_chord.articulations.append(articulations.Accent())
+
+                    part.append(created_chord)
+                except Exception as e:
+                    print(f"Error creating chord for row: {row} - {e}")
+        elif current_species != "SequenceX":
+            # Handle individual notes for other sequences
+            pitch_string = row["pitch"]
+            note_obj = convert_to_music21(pitch_string)
+            note_obj.quarterLength = 0.5
+
             if row["accent"].strip().lower() == "accent":
-                accent_articulation = articulations.Accent()
-                note_obj.articulations.append(accent_articulation)
+                note_obj.articulations.append(articulations.Accent())
 
             part.append(note_obj)
 
-# Export score to MusicXML
-score.write('musicxml', fp='OG0002459_codon_with_chords_test.musicxml')
+# Save the score to a MusicXML file
+output_file = "OG0002459_codon_with_chords_test.musicxml"
+score.write("musicxml", fp=output_file)
