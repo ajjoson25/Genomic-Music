@@ -64,7 +64,7 @@ score.insert(0, meter_obj)
 instrument_parts = {}
 
 # Read the CSV file
-with open("OG0004089_codon_with_chords.csv", "r") as csvfile:
+with open("OG0002459_codon_with_chords.csv", "r") as csvfile:
     reader = csv.DictReader(csvfile)
 
     for row in reader:
@@ -136,4 +136,4 @@ with open("OG0004089_codon_with_chords.csv", "r") as csvfile:
             part.append(note_obj)
 
 # Export score to MusicXML
-score.write('musicxml', fp='OG0004089_codon_with_chords_test.musicxml')
+score.write('musicxml', fp='OG0002459_codon_with_chords_test.musicxml')
